@@ -26,7 +26,7 @@ contract LiquidityPoolFactory {
             InvalidTokenAddress(_token0, _token1)
         );
 
-        LiquidityPool newPool = new LiquidityPool(_token0, _token1, _swapFee);
+        LiquidityPool newPool = new LiquidityPool(_token0, _token1, _swapFee, "LiquidityPool", "LP");
 
         liquidityPools[address(_token0)][address(_token1)] = address(newPool);
         liquidityPools[address(_token1)][address(_token0)] = address(newPool);
