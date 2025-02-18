@@ -5,34 +5,62 @@ import "./LiquidityPool.sol";
 contract LiquidityPoolFactory {
     mapping(address => mapping(address => address)) public liquidityPools;
     address[] public createdPools;
+    address public treasury;
 
     event LiquidityPoolCreated(
-        address poolAddress,
-        address token0,
-        address token1
+        address indexed poolAddress,
+        address indexed token0,
+        address indexed token1
     );
 
     error InvalidTokenAddress(address token0, address token1);
     error TokensMustBeDifferent(address token0, address token1);
+    error PoolAlreadyExists();
 
     function createLiquidityPool(
         address _token0,
-        address _token1,
-        uint8 _swapFee
+        address _token1
     ) public returns (address) {
-        require(_token0 != _token1, TokensMustBeDifferent(_token0, _token1));
-        require(
-            _token0 != address(0) && _token1 != address(0),
-            InvalidTokenAddress(_token0, _token1)
+        if (_token0 == _token1) revert TokensMustBeDifferent(_token0, _token1);
+        if (_token0 == address(0) || _token1 == address(0))
+            revert InvalidTokenAddress(_token0, _token1);
+        if (liquidityPools[_token0][_token1] != address(0))
+            revert PoolAlreadyExists();
+
+        // Sort tokens to ensure consistent pool addresses
+        (address token0, address token1) = _token0 < _token1
+            ? (_token0, _token1)
+            : (_token1, _token0);
+
+        LiquidityPool newPool = new LiquidityPool(
+            token0,
+            token1,
+            treasury,
+            "LP",
+            "LP"
         );
 
-        LiquidityPool newPool = new LiquidityPool(_token0, _token1, _swapFee, "LiquidityPool", "LP");
+        address poolAddress = address(newPool);
+        liquidityPools[token0][token1] = poolAddress;
+        liquidityPools[token1][token0] = poolAddress;
+        createdPools.push(poolAddress);
 
-        liquidityPools[address(_token0)][address(_token1)] = address(newPool);
-        liquidityPools[address(_token1)][address(_token0)] = address(newPool);
+        emit LiquidityPoolCreated(poolAddress, token0, token1);
+        return poolAddress;
+    }
 
-        createdPools.push(address(newPool));
-        emit LiquidityPoolCreated(address(newPool), _token0, _token1);
-        return address(newPool);
+    function getPool(
+        address tokenA,
+        address tokenB
+    ) external view returns (address) {
+        return liquidityPools[tokenA][tokenB];
+    }
+
+    function getAllPools() external view returns (address[] memory) {
+        return createdPools;
+    }
+
+    function getPoolsCount() external view returns (uint) {
+        return createdPools.length;
     }
 }
